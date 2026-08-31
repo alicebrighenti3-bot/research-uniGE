@@ -77,7 +77,7 @@ const doc = new Document({
       children: [
         // TITLE PAGE
         p("Anticoagulation in High-Risk Antiphospholipid Syndrome and Active Cancer: A Scoping Review and Clinical Framework", { bold: true, size: 32, align: AlignmentType.CENTER, spacingAfter: 300 }),
-        p("Working title — draft manuscript v0.2", { italic: true, align: AlignmentType.CENTER, size: 22, spacingAfter: 100 }),
+        p("Working title — draft manuscript v0.3", { italic: true, align: AlignmentType.CENTER, size: 22, spacingAfter: 100 }),
         p("Running title: Anticoagulation in high-risk APS with cancer", { align: AlignmentType.CENTER, size: 22, spacingAfter: 400 }),
         p("Authors: [to be completed]", { align: AlignmentType.CENTER, size: 22, spacingAfter: 80 }),
         p("Affiliations: [to be completed]", { align: AlignmentType.CENTER, size: 22, spacingAfter: 80 }),
@@ -164,6 +164,7 @@ const doc = new Document({
         bullet("Direct evidence: derived from studies conducted in the combined population of interest (APS, particularly high-risk/triple-positive, with concurrent malignancy)."),
         bullet("Indirect/extrapolated evidence: derived from studies in APS without cancer, or in cancer-associated thrombosis without documented APS, applied by analogy to the combined population."),
         bullet("Expert opinion/pathophysiological reasoning: recommendations not directly supported by either literature but considered clinically reasonable on pharmacological or mechanistic grounds."),
+        p("A pre-specified contingency is adopted rather than a purely post-hoc decision: as full-text screening and data charting proceed (tracked in a companion extraction spreadsheet, see Appendix C), a quantitative pooled analysis will be considered only if (i) at least five distinct studies contribute a Population C (high-risk/triple-positive APS with cancer) patient, (ii) at least one of these is a genuine comparative design (cohort, registry, or RCT) rather than a case report or case series, and (iii) at least three Population C patients are identifiable on each of at least two anticoagulant strategies being compared. Criterion (ii) is treated as necessary, not merely sufficient: accumulating case reports/series alone, however numerous, supports at most a descriptive pooled proportion with an explicit publication-bias caveat, never a comparative effect estimate, since case-level reports lack a denominator and a reference group by design. If these criteria are not met, the scoping review and narrative clinical framework described above stand as the complete, self-sufficient output of this project."),
 
         new Paragraph({ children: [new PageBreak()] }),
 
@@ -303,17 +304,20 @@ const doc = new Document({
         }),
 
         p("", { spacingAfter: 100 }),
-        h1("Appendix C. Notes for the next working session"),
+        h1("Appendix C. Working strategy and notes for the next session"),
+        h3("Two-track working strategy"),
+        p("Literature identified for this project (including case reports and case series) is logged patient-by-patient in a companion file, APS_Cancer_Literature_Tracker.xlsx, whose Dashboard tab auto-tallies the pre-specified pooling criteria set out in Section 2.6. The two tracks proceed in parallel and are not contingent on one another: (i) the scoping review and scenario-based clinical framework in Sections 3–4 are updated as each new source is charted, regardless of whether pooling ever becomes justified, and constitute the guaranteed deliverable of this project; (ii) a quantitative synthesis is added only if and when the tracker's Dashboard confirms the Section 2.6 criteria are met. This way, a negative or inconclusive feasibility verdict from the tracker does not cost the project its main output — it only determines whether Section 3 ends with a descriptive table or with an additional pooled-analysis subsection."),
+        h3("Standing to-do list"),
         bullet("Upload full texts of the studies referenced with [verify] or [REF] above so exact citations can be confirmed and completed."),
         bullet("Confirm authorship, affiliations, and corresponding author details for the title page."),
         bullet("Decide screening software (Rayyan/Covidence) and OSF registration details before finalising Section 2."),
-        bullet("Once Section 3 (Results) is populated, revisit Section 4.2 to convert extrapolation-based statements into direct-evidence statements wherever new data allow."),
+        bullet("Each time the tracker is updated with new studies: (a) update Section 3 (Results) with the new study count and characteristics; (b) revisit Section 4.2 to upgrade any scenario's evidence grading from extrapolated/expert opinion to direct evidence wherever the new source applies; (c) re-check the Section 2.6 pooling criteria and, once met, draft the corresponding meta-analytic methods/results subsections."),
       ],
     },
   ],
 });
 
 Packer.toBuffer(doc).then((buffer) => {
-  fs.writeFileSync("/home/user/research-uniGE/manuscript/APS_Cancer_Anticoagulation_Manuscript_v0.2.docx", buffer);
+  fs.writeFileSync("/home/user/research-uniGE/manuscript/APS_Cancer_Anticoagulation_Manuscript_v0.3.docx", buffer);
   console.log("done");
 });
