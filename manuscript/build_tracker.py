@@ -31,19 +31,28 @@ lines = [
     "",
     "PURPOSE",
     "Log every article you (or I) find — RCTs, cohorts, registries, case series, individual case "
-    "reports — one ROW PER PATIENT on the 'Data' tab. The 'Dashboard' tab recalculates automatically "
-    "as rows are added, so at any point we can see, with real numbers, whether a systematic review "
-    "with meta-analysis is defensible, or whether only a descriptive/narrative synthesis is honest.",
+    "reports. The 'Dashboard' tab recalculates automatically as rows are added, so at any point we "
+    "can see, with real numbers, whether a systematic review with meta-analysis is defensible, or "
+    "whether only a descriptive/narrative synthesis is honest.",
+    "",
+    "TWO DATA TABS FOR TWO DIFFERENT KINDS OF SOURCE",
+    "'Data' is PATIENT-LEVEL — one row per patient — and is what case reports and case series feed. "
+    "'Study_Effects' is STUDY-LEVEL — one row per effect estimate (one outcome, one comparison, one "
+    "subgroup) — and is what RCTs, cohorts, and registries feed, since a genuine pooled analysis "
+    "(manuscript Section 2.7) needs a hazard/risk ratio with its CI and event counts, not a patient "
+    "tally. A single comparative article can contribute to BOTH tabs if it also describes an "
+    "individual patient in enough detail (rare, but it happens with small trial subgroups).",
     "",
     "HOW TO USE",
     "1. For each article, create one row per patient described (a case report = 1 row; a case series "
     "or cohort of N patients = N rows, sharing the same Study_ID).",
-    "2. Cells shaded YELLOW on the 'Data' tab are the ones to fill in. Use the dropdown lists where "
-    "provided (Design, Population_group, aPL_profile, Anticoag_strategy, and all Yes/No/NA columns) — "
-    "typing free text into those columns breaks the automatic counts on the Dashboard.",
-    "3. Rows 2-4 on the 'Data' tab are WORKED EXAMPLES (shaded orange, Is_Example = Y). They are "
-    "excluded from every Dashboard count automatically. Leave them as a formatting reference, or "
-    "delete them once you're comfortable with the layout — either is fine.",
+    "2. Cells shaded YELLOW on the 'Data' and 'Study_Effects' tabs are the ones to fill in. Use the "
+    "dropdown lists where provided (Design, Population_group, aPL_profile, Anticoag_strategy, "
+    "Reports_cancer_status, Cancer_status_stratum, and all Yes/No/NA columns) — typing free text "
+    "into those columns breaks the automatic counts on the Dashboard.",
+    "3. The orange rows on 'Data' (rows 2-4) and 'Study_Effects' (row 2) are WORKED EXAMPLES "
+    "(Is_Example = Y). They are excluded from every Dashboard count automatically. Leave them as a "
+    "formatting reference, or delete them once you're comfortable with the layout — either is fine.",
     "4. The single most important column is 'Population_group' — this is the A / B / C distinction "
     "from the manuscript (Section 1.4): A = simple/transient aPL positivity in an oncology patient, "
     "B = clinically defined APS + cancer, C = high-risk or triple-positive APS + cancer. Everything "
@@ -210,7 +219,95 @@ for row in range(2, N_ROWS + 1):
     ws.cell(row=row, column=26, value=f'=IF(AND(A{row}<>"Y",B{row}<>"",K{row}="C"),B{row},"")')
 
 # ---------------------------------------------------------------
-# SHEET 3: Dashboard
+# SHEET 3: Study_Effects — aggregate effect estimates from comparative
+# studies (RCTs, cohorts, registries). The Data tab is patient-level and
+# suits case reports/series; a genuine pooled analysis (Section 2.7 of the
+# manuscript) needs study-level effect sizes instead, which this tab holds.
+# ---------------------------------------------------------------
+wse = wb.create_sheet("Study_Effects")
+wse.sheet_view.showGridLines = True
+
+se_headers = [
+    ("Is_Example", "Y for the worked-example row only; leave blank for real data."),
+    ("Study_ID", "Short key for the article, e.g. Pengo_2018_TRAPS. Reuse the same Study_ID as on the Data tab if the same article also contributed patient-level rows there."),
+    ("Design", "RCT / Retrospective cohort / Prospective cohort / Registry."),
+    ("Comparison", "The two arms being compared, e.g. 'DOAC vs VKA', 'LMWH vs VKA', 'Rivaroxaban vs VKA'."),
+    ("Population_subgroup", "Overall / Triple-positive only / Cancer present / Cancer absent / Arterial index event / Venous index event / Specific DOAC — the exact stratum this effect estimate applies to."),
+    ("Reports_cancer_status", "Y / N — does this study report cancer status at all (even just as an exclusion criterion)? This is the single most important column for judging Tier 2 feasibility (Section 2.7)."),
+    ("Cancer_status_stratum", "All patients (cancer status not reported) / Cancer excluded by design / Cancer-only stratum reported / Both cancer and non-cancer strata reported separately."),
+    ("Outcome", "Recurrent VTE / Recurrent arterial thrombosis / Any recurrent thrombosis / Major bleeding / CRNMB / All-cause mortality."),
+    ("Effect_measure", "HR / RR / OR."),
+    ("Estimate", "Point estimate of the effect measure."),
+    ("CI_lower", "Lower bound of the 95% CI."),
+    ("CI_upper", "Upper bound of the 95% CI."),
+    ("Arm1_label", "e.g. DOAC."),
+    ("Events_arm1", "Number of events in Arm 1."),
+    ("N_arm1", "Number of patients in Arm 1 (in this subgroup/stratum)."),
+    ("Arm2_label", "e.g. VKA."),
+    ("Events_arm2", "Number of events in Arm 2."),
+    ("N_arm2", "Number of patients in Arm 2 (in this subgroup/stratum)."),
+    ("Follow_up", "Follow-up duration/description."),
+    ("RoB_tool", "RoB 2 / ROBINS-I / Not yet assessed."),
+    ("RoB_overall", "Low / Some concerns / High (RoB 2) or Low / Moderate / Serious / Critical (ROBINS-I)."),
+    ("Full_citation", "Author, title, journal, year."),
+    ("Notes", "Anything ambiguous — especially how Population_subgroup and Cancer_status_stratum were determined."),
+]
+for col_idx, (name, desc) in enumerate(se_headers, start=1):
+    cell = wse.cell(row=1, column=col_idx, value=name)
+    cell.font = HEADER_FONT
+    cell.fill = HEADER_FILL
+    cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+    cell.border = BORDER
+    cell.comment = Comment(desc, "Tracker")
+    letter = get_column_letter(col_idx)
+    wse.column_dimensions[letter].width = 15 if name not in ("Full_citation", "Notes", "Comparison") else 30
+wse.row_dimensions[1].height = 30
+wse.freeze_panes = "C2"
+
+se_dv_defs = {
+    "A": '"Y"',
+    "C": '"RCT,Retrospective cohort,Prospective cohort,Registry"',
+    "F": '"Y,N"',
+    "G": '"All patients (cancer status not reported),Cancer excluded by design,Cancer-only stratum reported,Both cancer and non-cancer strata reported separately"',
+    "H": '"Recurrent VTE,Recurrent arterial thrombosis,Any recurrent thrombosis,Major bleeding,CRNMB,All-cause mortality"',
+    "I": '"HR,RR,OR"',
+    "S": '"RoB 2,ROBINS-I,Not yet assessed"',
+}
+for col_letter, formula in se_dv_defs.items():
+    dv = DataValidation(type="list", formula1=formula, allow_blank=True, showDropDown=False)
+    wse.add_data_validation(dv)
+    dv.add(f"{col_letter}2:{col_letter}{N_ROWS}")
+
+for row in range(2, N_ROWS + 1):
+    for col_idx in range(1, len(se_headers) + 1):
+        c = wse.cell(row=row, column=col_idx)
+        c.border = BORDER
+        c.font = Font(name=FONT_NAME, size=10)
+        if row >= 3:
+            c.fill = INPUT_FILL
+
+se_example = ["Y", "Pengo_2018_TRAPS", "RCT", "Rivaroxaban vs VKA", "Triple-positive only", "Y",
+              "Cancer excluded by design", "Any recurrent thrombosis", "HR", 6.7, 1.5, 30.5,
+              "Rivaroxaban", 6, 59, "VKA", 0, 61, "median ~18 months (trial stopped early)",
+              "RCT", "Some concerns",
+              "Pengo V, et al. Rivaroxaban vs. warfarin in high-risk patients with antiphospholipid syndrome (TRAPS trial). Blood. 2018.",
+              "ILLUSTRATIVE EXAMPLE ONLY — numbers are placeholders shaped like a stopped-early trial, not the real reported estimate; replace with the true figures once the full text is reviewed. Shows how 'Cancer excluded by design' should be used: TRAPS very likely excluded active malignancy, which is exactly the fact that limits Tier 2 in Section 2.7 of the manuscript."]
+for col_idx, val in enumerate(se_example, start=1):
+    c = wse.cell(row=2, column=col_idx, value=val)
+    c.fill = EXAMPLE_FILL
+    c.font = Font(name=FONT_NAME, size=10, italic=True)
+    c.border = BORDER
+    c.alignment = WRAP
+
+# Helper column X: Study_ID key only for real (non-example) rows with a Study_ID filled in
+wse.cell(row=1, column=24, value="StudyKey_ifReal (helper — do not edit)").font = HEADER_FONT
+wse.cell(row=1, column=24).fill = HEADER_FILL
+wse.column_dimensions["X"].width = 20
+for row in range(2, N_ROWS + 1):
+    wse.cell(row=row, column=24, value=f'=IF(AND(A{row}<>"Y",B{row}<>""),B{row},"")')
+
+# ---------------------------------------------------------------
+# SHEET 4: Dashboard
 # ---------------------------------------------------------------
 wsd = wb.create_sheet("Dashboard")
 wsd.sheet_view.showGridLines = False
@@ -326,17 +423,49 @@ row = metric(row, "Any genuine comparative design (cohort/registry/RCT) in Group
              f"References B{comparativeDesign_row} ('cohorts, registries, or RCTs' count in Section 3).")
 row += 1
 
-row = section_title(row, "7. Bottom line")
+def rng_se(col):
+    return f"Study_Effects!{col}2:{col}{N_ROWS}"
+
+row = section_title(row, "7. Study-level effect estimates (Study_Effects tab) — Tier 1 / Tier 2 feasibility (Section 2.7)")
+row = metric(row, "Study-level effect rows entered (excluding example)",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("B")},"<>")',
+             "Each row is one effect estimate (one outcome, one comparison, one subgroup) from one comparative study — not a patient count.")
+row = metric(row, "Distinct comparative studies entered",
+             f'=SUMPRODUCT((({rng_se("X")})<>"")/COUNTIF({rng_se("X")},{rng_se("X")}&""))')
+row = metric(row, "RCT vs observational effect rows",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"RCT")&" RCT / "&'
+             f'(COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"Retrospective cohort")'
+             f'+COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"Prospective cohort")'
+             f'+COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"Registry"))&" observational"',
+             "Section 2.7 pools these separately — a combined estimate is only a sensitivity analysis.")
+reportsCancer_row = row
+row = metric(row, "Effect rows from studies that report cancer status at all (Reports_cancer_status = Y)",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("F")},"Y")',
+             "Tier 1 (cancer as a pre-specified effect modifier) needs this to be non-trivial — it is the main thing to watch as you add studies.")
+bothStrata_row = row
+row = metric(row, "Effect rows reporting BOTH a cancer and a non-cancer stratum separately",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("G")},"Both cancer and non-cancer strata reported separately")',
+             "This is the real Tier 2 gate: a formal treatment × cancer-status interaction test needs this, not just 'cancer status mentioned'.")
+row = metric(row, "Tier 1 reachable (any cancer-relevant effect rows at all)?",
+             f'=IF(B{reportsCancer_row}>0,"Yes — proceed with cancer as a pre-specified effect modifier","Not yet — no study reports cancer status")')
+row = metric(row, "Tier 2 reachable (both strata reported, in >=2 independent studies)?",
+             f'=IF(B{bothStrata_row}>=2,"Possibly — check these are >=2 independent Study_IDs before proceeding","No — Tier 2 is not supported yet, stay at Tier 1")',
+             "Manually confirm the rows behind this count come from at least two different Study_ID values, not the same study reported twice.")
+row += 1
+
+row = section_title(row, "8. Bottom line")
 c1 = wsd.cell(row=row, column=1,
-              value="Even when every gate above is 'Reached', case report/series volume alone supports a descriptive "
+              value="Even when every Section 6 gate is 'Reached', case report/series volume alone supports a descriptive "
                     "systematic review with a pooled proportion at most — never a pooled comparative effect size — "
                     "because case reports have no denominator, no control group, and strong publication bias "
                     "(unusual or dramatic courses are reported far more often than uneventful ones). A genuine "
-                    "meta-analysis of DOAC vs VKA (or vs LMWH) effect on recurrence/bleeding in Group C requires "
-                    "Section 3's 'cohorts, registries, or RCTs' count to be non-zero, not just a high case count.")
+                    "meta-analysis (Section 2.7) requires entries on the Study_Effects tab, not just patient rows on "
+                    "Data: Tier 1 needs studies that report cancer status at all; Tier 2 needs studies that report "
+                    "separate cancer and non-cancer strata; neither is available yet from the pivotal high-risk APS "
+                    "RCTs, which are expected to have excluded active malignancy by design.")
 c1.font = Font(name=FONT_NAME, size=10, italic=True)
 c1.alignment = WRAP
-wsd.row_dimensions[row].height = 60
+wsd.row_dimensions[row].height = 75
 wsd.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
 
 wb.save("/home/user/research-uniGE/manuscript/APS_Cancer_Literature_Tracker.xlsx")
