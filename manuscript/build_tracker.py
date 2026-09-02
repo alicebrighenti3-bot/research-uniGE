@@ -223,34 +223,45 @@ for row in range(2, N_ROWS + 1):
 # studies (RCTs, cohorts, registries). The Data tab is patient-level and
 # suits case reports/series; a genuine pooled analysis (Section 2.7 of the
 # manuscript) needs study-level effect sizes instead, which this tab holds.
+# One row = one effect estimate (one outcome, one comparison OR prognostic
+# factor, one subgroup) — Domain A rows use the Comparison column, Domain B
+# rows use the Prognostic_factor column, and each row leaves the other blank.
 # ---------------------------------------------------------------
 wse = wb.create_sheet("Study_Effects")
 wse.sheet_view.showGridLines = True
 
 se_headers = [
-    ("Is_Example", "Y for the worked-example row only; leave blank for real data."),
+    ("Is_Example", "Y for the worked-example rows only; leave blank for real data."),
     ("Study_ID", "Short key for the article, e.g. Pengo_2018_TRAPS. Reuse the same Study_ID as on the Data tab if the same article also contributed patient-level rows there."),
     ("Design", "RCT / Retrospective cohort / Prospective cohort / Registry."),
-    ("Comparison", "The two arms being compared, e.g. 'DOAC vs VKA', 'LMWH vs VKA', 'Rivaroxaban vs VKA'."),
-    ("Population_subgroup", "Overall / Triple-positive only / Cancer present / Cancer absent / Arterial index event / Venous index event / Specific DOAC — the exact stratum this effect estimate applies to."),
-    ("Reports_cancer_status", "Y / N — does this study report cancer status at all (even just as an exclusion criterion)? This is the single most important column for judging Tier 2 feasibility (Section 2.7)."),
-    ("Cancer_status_stratum", "All patients (cancer status not reported) / Cancer excluded by design / Cancer-only stratum reported / Both cancer and non-cancer strata reported separately."),
+    ("Domain", "A - Therapeutic effect (a treatment comparison) / B - Prognostic factor (an association with outcome regardless of treatment). See manuscript Section 2.7 for the distinction — do not use 'effect modifier' loosely for a Domain B finding."),
+    ("Comparison", "DOMAIN A ONLY. The two treatment arms being compared, e.g. 'DOAC vs VKA', 'LMWH vs VKA', 'Rivaroxaban vs other DOACs'. Leave blank for Domain B rows."),
+    ("Prognostic_factor", "DOMAIN B ONLY. Triple positivity / Active cancer / Prior arterial event / Prior recurrence / SLE / Age / Sex / VKA quality (TTR) / Anticoagulant intensity / Other. Leave blank for Domain A rows."),
+    ("Population_subgroup", "The stratum this specific estimate applies to, e.g. Overall / Triple-positive only / Arterial index event / Venous index event / Specific DOAC."),
     ("Outcome", "Recurrent VTE / Recurrent arterial thrombosis / Any recurrent thrombosis / Major bleeding / CRNMB / All-cause mortality."),
-    ("Effect_measure", "HR / RR / OR."),
+    ("Effect_measure", "HR / RR / OR — do not mix measures within one pooled analysis later."),
+    ("Adjusted_or_Unadjusted", "Adjusted (from a multivariable model) / Unadjusted (crude/univariate). Adjusted is the primary analysis for Domain B; unadjusted is a sensitivity analysis only."),
+    ("Adjustment_set", "If Adjusted: which covariates the model adjusted for, e.g. 'prior arterial event, anticoagulant strategy, age'. Leave blank if Unadjusted."),
     ("Estimate", "Point estimate of the effect measure."),
     ("CI_lower", "Lower bound of the 95% CI."),
     ("CI_upper", "Upper bound of the 95% CI."),
-    ("Arm1_label", "e.g. DOAC."),
-    ("Events_arm1", "Number of events in Arm 1."),
-    ("N_arm1", "Number of patients in Arm 1 (in this subgroup/stratum)."),
-    ("Arm2_label", "e.g. VKA."),
-    ("Events_arm2", "Number of events in Arm 2."),
-    ("N_arm2", "Number of patients in Arm 2 (in this subgroup/stratum)."),
+    ("Group1_label", "Domain A: the first treatment arm, e.g. DOAC. Domain B: the factor-present group, e.g. 'Triple-positive'."),
+    ("Events_group1", "Number of events in Group 1."),
+    ("N_group1", "Number of patients in Group 1 (in this subgroup/stratum)."),
+    ("Group2_label", "Domain A: the second/reference treatment arm, e.g. VKA. Domain B: the factor-absent/reference group, e.g. 'Non-triple-positive'."),
+    ("Events_group2", "Number of events in Group 2."),
+    ("N_group2", "Number of patients in Group 2 (in this subgroup/stratum)."),
+    ("Cancer_status_reported", "Y / N — does the SOURCE STUDY report cancer status at all (even only as an exclusion criterion), independently of what this particular row's Domain/factor is about?"),
+    ("Cancer_patients_present", "Y / N / Not reported. NOT the same question as Cancer_status_reported: a study can report 'cancer excluded by design' (status reported, Y here = N) or simply never mention cancer (status not reported, this column = Not reported). Keep these two columns independent — conflating them was flagged as a specific risk to avoid."),
+    ("Active_cancer_definition", "Free text: how the source study defines 'active' malignancy, if it does (e.g. 'on treatment within 6 months', 'not in remission')."),
+    ("Anticancer_treatment_reported", "Chemotherapy / Radiotherapy / Chemo+Radio / Surgery only / Mixed / Not specified / Not applicable."),
+    ("Cancer_stratified_estimate_available", "Y / N — does the source study report an effect estimate computed specifically within a cancer subgroup (regardless of whether a non-cancer stratum or interaction test is also present)?"),
+    ("Treatment_x_cancer_interaction_tested", "Y / N — the precise Tier 2 gate (Section 2.7): was a FORMAL treatment × cancer-status interaction term tested? A 'Y' here is a materially stronger claim than Cancer_stratified_estimate_available = Y, and neither should be inferred from the other."),
     ("Follow_up", "Follow-up duration/description."),
-    ("RoB_tool", "RoB 2 / ROBINS-I / Not yet assessed."),
-    ("RoB_overall", "Low / Some concerns / High (RoB 2) or Low / Moderate / Serious / Critical (ROBINS-I)."),
+    ("RoB_tool", "RoB 2 (RCTs, Domain A) / ROBINS-I (non-randomised comparative studies, Domain A) / QUIPS (prognostic factor studies, Domain B) / Not yet assessed. Do not use ROBINS-I for a Domain B row."),
+    ("RoB_overall", "Low / Some concerns / High (RoB 2); Low / Moderate / Serious / Critical (ROBINS-I); Low / Moderate / High (QUIPS, per domain rated)."),
     ("Full_citation", "Author, title, journal, year."),
-    ("Notes", "Anything ambiguous — especially how Population_subgroup and Cancer_status_stratum were determined."),
+    ("Notes", "Anything ambiguous — especially how Population_subgroup, Domain, and the cancer columns were determined."),
 ]
 for col_idx, (name, desc) in enumerate(se_headers, start=1):
     cell = wse.cell(row=1, column=col_idx, value=name)
@@ -260,18 +271,24 @@ for col_idx, (name, desc) in enumerate(se_headers, start=1):
     cell.border = BORDER
     cell.comment = Comment(desc, "Tracker")
     letter = get_column_letter(col_idx)
-    wse.column_dimensions[letter].width = 15 if name not in ("Full_citation", "Notes", "Comparison") else 30
+    wse.column_dimensions[letter].width = 15 if name not in ("Full_citation", "Notes", "Adjustment_set", "Active_cancer_definition") else 30
 wse.row_dimensions[1].height = 30
 wse.freeze_panes = "C2"
 
 se_dv_defs = {
     "A": '"Y"',
     "C": '"RCT,Retrospective cohort,Prospective cohort,Registry"',
-    "F": '"Y,N"',
-    "G": '"All patients (cancer status not reported),Cancer excluded by design,Cancer-only stratum reported,Both cancer and non-cancer strata reported separately"',
+    "D": '"A - Therapeutic effect,B - Prognostic factor"',
+    "F": '"Triple positivity,Active cancer,Prior arterial event,Prior recurrence,SLE,Age,Sex,VKA quality (TTR),Anticoagulant intensity,Other"',
     "H": '"Recurrent VTE,Recurrent arterial thrombosis,Any recurrent thrombosis,Major bleeding,CRNMB,All-cause mortality"',
     "I": '"HR,RR,OR"',
-    "S": '"RoB 2,ROBINS-I,Not yet assessed"',
+    "J": '"Adjusted,Unadjusted"',
+    "U": '"Y,N"',
+    "V": '"Y,N,Not reported"',
+    "X": '"Chemotherapy,Radiotherapy,Chemo+Radio,Surgery only,Mixed,Not specified,Not applicable"',
+    "Y": '"Y,N"',
+    "Z": '"Y,N"',
+    "AB": '"RoB 2,ROBINS-I,QUIPS,Not yet assessed"',
 }
 for col_letter, formula in se_dv_defs.items():
     dv = DataValidation(type="list", formula1=formula, allow_blank=True, showDropDown=False)
@@ -283,28 +300,43 @@ for row in range(2, N_ROWS + 1):
         c = wse.cell(row=row, column=col_idx)
         c.border = BORDER
         c.font = Font(name=FONT_NAME, size=10)
-        if row >= 3:
+        if row >= 4:
             c.fill = INPUT_FILL
 
-se_example = ["Y", "Pengo_2018_TRAPS", "RCT", "Rivaroxaban vs VKA", "Triple-positive only", "Y",
-              "Cancer excluded by design", "Any recurrent thrombosis", "HR", 6.7, 1.5, 30.5,
-              "Rivaroxaban", 6, 59, "VKA", 0, 61, "median ~18 months (trial stopped early)",
-              "RCT", "Some concerns",
-              "Pengo V, et al. Rivaroxaban vs. warfarin in high-risk patients with antiphospholipid syndrome (TRAPS trial). Blood. 2018.",
-              "ILLUSTRATIVE EXAMPLE ONLY — numbers are placeholders shaped like a stopped-early trial, not the real reported estimate; replace with the true figures once the full text is reviewed. Shows how 'Cancer excluded by design' should be used: TRAPS very likely excluded active malignancy, which is exactly the fact that limits Tier 2 in Section 2.7 of the manuscript."]
-for col_idx, val in enumerate(se_example, start=1):
-    c = wse.cell(row=2, column=col_idx, value=val)
-    c.fill = EXAMPLE_FILL
-    c.font = Font(name=FONT_NAME, size=10, italic=True)
-    c.border = BORDER
-    c.alignment = WRAP
+se_examples = [
+    ["Y", "Pengo_2018_TRAPS", "RCT", "A - Therapeutic effect", "Rivaroxaban vs VKA", "", "Triple-positive only",
+     "Any recurrent thrombosis", "HR", "Unadjusted", "", 6.7, 1.5, 30.5,
+     "Rivaroxaban", 6, 59, "VKA", 0, 61,
+     "Y", "N", "not reported as 'active' — appears to be an eligibility exclusion, to confirm on full text", "Not applicable",
+     "N", "N",
+     "median ~18 months (trial stopped early)", "RoB 2", "Some concerns",
+     "Pengo V, et al. Rivaroxaban vs. warfarin in high-risk patients with antiphospholipid syndrome (TRAPS trial). Blood. 2018.",
+     "ILLUSTRATIVE EXAMPLE — numbers are placeholders shaped like a stopped-early trial, not the real reported estimate; replace once the full text is reviewed. Cancer_status_reported=Y / Cancer_patients_present=N is exactly the 'excluded by design, to be confirmed' case discussed in manuscript Section 2.7 — do not upgrade this to Treatment_x_cancer_interaction_tested=Y."],
+    ["Y", "Example_ProgFactor_Illustrative", "Retrospective cohort", "B - Prognostic factor", "", "Active cancer",
+     "Overall", "Any recurrent thrombosis", "HR", "Adjusted", "prior arterial event, anticoagulant strategy, age", 2.1, 1.0, 4.4,
+     "Cancer present", 5, 18, "Cancer absent", 9, 132,
+     "Y", "Y", "on active chemotherapy at index event (illustrative)", "Chemotherapy",
+     "Y", "N",
+     "24 months", "QUIPS", "Moderate",
+     "PLACEHOLDER — replace with a real cohort once found; format only.",
+     "Shows the Domain B shape: a prognostic association for cancer (Cancer_stratified_estimate_available=Y) WITHOUT a formal interaction test (Treatment_x_cancer_interaction_tested=N) — this is a prognostic finding, not evidence that cancer changes which drug works best."],
+]
+for i, row_vals in enumerate(se_examples, start=2):
+    for col_idx, val in enumerate(row_vals, start=1):
+        c = wse.cell(row=i, column=col_idx, value=val)
+        c.fill = EXAMPLE_FILL
+        c.font = Font(name=FONT_NAME, size=10, italic=True)
+        c.border = BORDER
+        c.alignment = WRAP
 
-# Helper column X: Study_ID key only for real (non-example) rows with a Study_ID filled in
-wse.cell(row=1, column=24, value="StudyKey_ifReal (helper — do not edit)").font = HEADER_FONT
-wse.cell(row=1, column=24).fill = HEADER_FILL
-wse.column_dimensions["X"].width = 20
+# Helper column AD: Study_ID key only for real (non-example) rows with a Study_ID filled in
+helper_col = len(se_headers) + 1  # AD
+helper_letter = get_column_letter(helper_col)
+wse.cell(row=1, column=helper_col, value="StudyKey_ifReal (helper — do not edit)").font = HEADER_FONT
+wse.cell(row=1, column=helper_col).fill = HEADER_FILL
+wse.column_dimensions[helper_letter].width = 20
 for row in range(2, N_ROWS + 1):
-    wse.cell(row=row, column=24, value=f'=IF(AND(A{row}<>"Y",B{row}<>""),B{row},"")')
+    wse.cell(row=row, column=helper_col, value=f'=IF(AND(A{row}<>"Y",B{row}<>""),B{row},"")')
 
 # ---------------------------------------------------------------
 # SHEET 4: Dashboard
@@ -426,31 +458,49 @@ row += 1
 def rng_se(col):
     return f"Study_Effects!{col}2:{col}{N_ROWS}"
 
-row = section_title(row, "7. Study-level effect estimates (Study_Effects tab) — Tier 1 / Tier 2 feasibility (Section 2.7)")
-row = metric(row, "Study-level effect rows entered (excluding example)",
+row = section_title(row, "7. Study-level effect estimates (Study_Effects tab) — Domain A/B and Tier 1/2 feasibility (Section 2.7)")
+row = metric(row, "Study-level effect rows entered (excluding examples)",
              f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("B")},"<>")',
-             "Each row is one effect estimate (one outcome, one comparison, one subgroup) from one comparative study — not a patient count.")
+             "Each row is one effect estimate (one outcome, one comparison or prognostic factor, one subgroup) — not a patient count.")
 row = metric(row, "Distinct comparative studies entered",
-             f'=SUMPRODUCT((({rng_se("X")})<>"")/COUNTIF({rng_se("X")},{rng_se("X")}&""))')
+             f'=SUMPRODUCT((({rng_se("AF")})<>"")/COUNTIF({rng_se("AF")},{rng_se("AF")}&""))')
+row = metric(row, "Domain A (therapeutic) vs Domain B (prognostic) effect rows",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("D")},"A - Therapeutic effect")&" Domain A / "&'
+             f'COUNTIFS({rng_se("A")},"<>Y",{rng_se("D")},"B - Prognostic factor")&" Domain B"',
+             "Kept and reported separately per Section 2.7 — never combined into one certainty rating.")
 row = metric(row, "RCT vs observational effect rows",
              f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"RCT")&" RCT / "&'
              f'(COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"Retrospective cohort")'
              f'+COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"Prospective cohort")'
              f'+COUNTIFS({rng_se("A")},"<>Y",{rng_se("C")},"Registry"))&" observational"',
              "Section 2.7 pools these separately — a combined estimate is only a sensitivity analysis.")
-reportsCancer_row = row
-row = metric(row, "Effect rows from studies that report cancer status at all (Reports_cancer_status = Y)",
-             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("F")},"Y")',
-             "Tier 1 (cancer as a pre-specified effect modifier) needs this to be non-trivial — it is the main thing to watch as you add studies.")
-bothStrata_row = row
-row = metric(row, "Effect rows reporting BOTH a cancer and a non-cancer stratum separately",
-             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("G")},"Both cancer and non-cancer strata reported separately")',
-             "This is the real Tier 2 gate: a formal treatment × cancer-status interaction test needs this, not just 'cancer status mentioned'.")
-row = metric(row, "Tier 1 reachable (any cancer-relevant effect rows at all)?",
-             f'=IF(B{reportsCancer_row}>0,"Yes — proceed with cancer as a pre-specified effect modifier","Not yet — no study reports cancer status")')
-row = metric(row, "Tier 2 reachable (both strata reported, in >=2 independent studies)?",
-             f'=IF(B{bothStrata_row}>=2,"Possibly — check these are >=2 independent Study_IDs before proceeding","No — Tier 2 is not supported yet, stay at Tier 1")',
-             "Manually confirm the rows behind this count come from at least two different Study_ID values, not the same study reported twice.")
+row = metric(row, "Domain B: adjusted vs unadjusted effect rows",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("D")},"B - Prognostic factor",{rng_se("J")},"Adjusted")&" adjusted / "&'
+             f'COUNTIFS({rng_se("A")},"<>Y",{rng_se("D")},"B - Prognostic factor",{rng_se("J")},"Unadjusted")&" unadjusted"',
+             "Adjusted is the Domain B primary analysis; unadjusted is a sensitivity analysis only (Section 2.7).")
+row += 1
+
+row = section_title(row, "7b. Cancer-specific columns — four DIFFERENT questions, do not conflate them")
+cancerReported_row = row
+row = metric(row, "Effect rows where the source study reports cancer status at all",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("U")},"Y")',
+             "Cancer_status_reported = Y. This is 'the study says something about cancer', not 'the study has cancer patients'.")
+row = metric(row, "...of which, rows where oncology patients were actually present",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("U")},"Y",{rng_se("V")},"Y")',
+             "Cancer_patients_present = Y. A study can report cancer status = Y (e.g. 'cancer excluded by design') with Cancer_patients_present = N — that is not the same as never mentioning cancer at all.")
+stratifiedEstimate_row = row
+row = metric(row, "Effect rows with a cancer-stratified estimate available",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("Y")},"Y")',
+             "Cancer_stratified_estimate_available = Y — an estimate computed within a cancer subgroup. This is Domain B raw material, not yet an interaction test.")
+interactionTested_row = row
+row = metric(row, "Effect rows with a FORMAL treatment × cancer interaction tested",
+             f'=COUNTIFS({rng_se("A")},"<>Y",{rng_se("Z")},"Y")',
+             "Treatment_x_cancer_interaction_tested = Y — the real Tier 2 gate. This is the only column that supports calling cancer a treatment-effect modifier rather than a prognostic factor.")
+row = metric(row, "Tier 1 reachable (cancer usable as a pre-specified Domain B prognostic factor)?",
+             f'=IF(B{cancerReported_row}>0,"Yes — proceed, Section 2.7 Tier 1","Not yet — no study reports cancer status")')
+row = metric(row, "Tier 2 reachable (cancer usable as a Domain A treatment-effect modifier)?",
+             f'=IF(B{interactionTested_row}>=1,"Possibly — confirm >=2 independent Study_IDs before claiming effect modification","No — stratified estimates alone (see row above) are prognostic, not effect-modification, evidence")',
+             "Do not promote a high count on the 'cancer-stratified estimate available' row into a Tier 2 claim — only this row (a tested interaction) does that, per Section 2.7.")
 row += 1
 
 row = section_title(row, "8. Bottom line")
@@ -459,10 +509,13 @@ c1 = wsd.cell(row=row, column=1,
                     "systematic review with a pooled proportion at most — never a pooled comparative effect size — "
                     "because case reports have no denominator, no control group, and strong publication bias "
                     "(unusual or dramatic courses are reported far more often than uneventful ones). A genuine "
-                    "meta-analysis (Section 2.7) requires entries on the Study_Effects tab, not just patient rows on "
-                    "Data: Tier 1 needs studies that report cancer status at all; Tier 2 needs studies that report "
-                    "separate cancer and non-cancer strata; neither is available yet from the pivotal high-risk APS "
-                    "RCTs, which are expected to have excluded active malignancy by design.")
+                    "synthesis (Section 2.7) requires entries on the Study_Effects tab, not just patient rows on Data, "
+                    "and treats cancer as two SEPARATE claims of different strength: Tier 1 (cancer as a Domain B "
+                    "prognostic factor) needs only studies that report cancer status; Tier 2 (cancer as a Domain A "
+                    "treatment-effect modifier) needs a formal treatment × cancer interaction test, which is a "
+                    "materially higher bar that stratified estimates alone do not meet. If the review ends up with "
+                    "solid Domain A/B evidence for high-risk APS in general but confirms this specific evidence "
+                    "vacuum for the cancer intersection, that contrast is itself the paper's finding, not a failure.")
 c1.font = Font(name=FONT_NAME, size=10, italic=True)
 c1.alignment = WRAP
 wsd.row_dimensions[row].height = 75
